@@ -1,6 +1,35 @@
 import os
 import pandas as pd
 
+
+def get_data():
+    pass
+
+
+def merge_consist():
+    pass
+
+
+def merge_store():
+    pass
+
+
+def get_min_data():
+    pass
+
+
+def update_store():
+    pass
+
+
+def handling_data():
+    pass
+
+
+def output_data():
+    pass
+
+
 DIR = os.getcwd()
 
 path = f'{DIR}\\test_file.xlsx'
@@ -26,16 +55,15 @@ qty_on_store = pd.read_excel(path, sheet_name='Pivot Stock')
 qty_on_store_dict = dict(zip(qty_on_store['Row Labels'], qty_on_store['Sum of QTY']))
 #print(qty_on_store_dict)
 
-nd = {"redress_kit": None,
-      "total": [],
-      "consist": []}
+nd = {'series': []}
 
 for k, v in dt.items():
     for i in v:
         for a, b in redress_dict.items():
             for z in b:
+                
                 if i["redress kit"] == z['redress_kit']:
-                    nd.update({z['redress_kit']:i['redress kit']})
+                    nd['series'].append({'redress_kit':i['redress kit'], "total": z["total"], "consist": i["consist"]})
                     
 
-print(nd)
+print("result = ", nd)
