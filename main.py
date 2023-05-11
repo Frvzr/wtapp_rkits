@@ -6,22 +6,41 @@ import logging
 
 
 DIR = os.getcwd()
-FILE_PATH = f'{DIR}\\test_file.xlsx' 
+FILE_PATH = f'{DIR}\\required_redress_kit.xlsx'
+
 _log_format = f"%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 
 def get_file_handler():
-    file_handler = logging.FileHandler("test.log")
+    """_summary_
+
+    Returns:
+        _type_: _description_
+    """
+    file_handler = logging.FileHandler("log.log")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter(_log_format))
     return file_handler
 
 def get_stream_handler():
+    """_summary_
+
+    Returns:
+        _type_: _description_
+    """
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
     stream_handler.setFormatter(logging.Formatter(_log_format))
     return stream_handler
 
 def get_logger(name):
+    """_summary_
+
+    Args:
+        name (_str_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     logger.addHandler(get_file_handler())
@@ -37,62 +56,70 @@ def get_data_from_excel(FILE_PATH):
     Функция получает данные с файла
 
     Args:
-        FILE_PATH (str): Путь к файлу с обрабатываемыми данными
+        FILE_PATH (_str_): Путь к файлу с обрабатываемыми данными
 
     Returns:
-        dict: Функция возвращает данные с 3-х, заранее известных страниц файла
+        (_dict_): Функция возвращает данные с 3-х заранее известных страниц файла
     """
     try:
         logger.info('Start programm')
-        redress = pd.read_excel(FILE_PATH, sheet_name='Redress')
-        need_redress_kits = {"series": []}
-        for k, v in redress.groupby("Redress kit", sort=False):
-            need_redress_kits["series"].append({"redress_kit": k.upper(), "total": []})
-            for q, r in zip(v["Q-ty on store"], v["Req qty"]):
-                need_redress_kits["series"][-1]["total"].append({"q-ty on store": q, "required": r})
+        redress = pd.read_excel(FILE_PATH, sheet_name='Required redress kits')
+        required_redress_kits = {"series": []}
+        for redress_kit, v in redress.groupby("Redress kit", sort=False):
+            required_redress_kits["series"].append({"redress_kit": redress_kit.upper(), "total": []})
+            for quantity_on_store, required_quantity in zip(v["Q-ty on store"], v["Req qty"]):
+                required_redress_kits["series"][-1]["total"].append({"q-ty on store": quantity_on_store, "required": required_quantity})
 
-        rk_bom = pd.read_excel(FILE_PATH, sheet_name='redress_kits_items')
+        rk_bom = pd.read_excel(FILE_PATH, sheet_name='Redress kit BOM')
         redress_kit_bom = {"series": []}
-        for i, g in rk_bom.groupby("Redress Part Number"):
-            redress_kit_bom["series"].append({"redress kit": i.upper(), "consist": []})
-            for w, s, t in zip(g["Item Part Number"], g["Quantity pr."], g['Description']):
+        for redress_kit_, redress_kit_items in rk_bom.groupby("Redress Part Number"):
+            redress_kit_bom["series"].append({"redress kit": redress_kit_.upper(), "consist": []})
+            for w, s, t in zip(redress_kit_items["Item Part Number"], redress_kit_items["Quantity pr."], redress_kit_items['Description']):
                 redress_kit_bom["series"][-1]["consist"].append({'item': w, 'description': t, 'qty': s})
         
         qty_on_store = pd.read_excel(FILE_PATH, sheet_name='Pivot Stock')
-        qty_on_store_data = dict(zip(qty_on_store['Row Labels'], qty_on_store['Sum of QTY']))
+        qty_on_store_data = dict(zip(qty_on_store['Part Number'], qty_on_store['Sum of QTY']))
 
-        return need_redress_kits, redress_kit_bom, qty_on_store_data
+        return required_redress_kits, redress_kit_bom, qty_on_store_data
     except Exception as e:
         logger.critical(e)
         
         
-def merge_consist(need_redress_kits, redress_kit_bom):
+def merge_consist(required_redress_kits, redress_kit_bom):
     """_summary_
 
     Args:
-        need_redress_kits (dict): _description_
-        redress_kit_bom (dict): _description_
+        need_redress_kits (_dict_): данные с необходимыми наборами зип
+        redress_kit_bom (_dict_): данные с составляющими запчастями, входящие в набор зип
 
     Returns:
-        dict: _description_
+        (_dict_): данные с необходимым кол-вом наборов зип и их составом
     """
     try:
         required_with_items = {'series': []}
-        for a, b in need_redress_kits.items():
+        for a, b in required_redress_kits.items():
             for z in b:
                 for k, v in redress_kit_bom.items():
                     for i in v:
                         if i["redress kit"] == z['redress_kit']:
                             required_with_items['series'].append({'redress_kit':i['redress kit'], "total": z["total"], "consist": i["consist"]})
-        #print(required_with_items)
         return required_with_items
     except Exception as e:
         logger.critical(e)
 
 
 def merge_store(qty_on_store_data, required_with_items):
+    """_summary_
+
+    Args:
+        qty_on_store_data (dict): словарь с количеством зип на складе
+        required_with_items (dict): словарь с необходимым кол-вом наборов и их составом
+
+    Returns:
+        dict: словарь с максимальным кол-вом наборов, которые мы можем собрать
+    """
     try:
-        nd = {'series': []}
+        max_collect_redress = {'series': []}
         for a, b in required_with_items.items():
             for i in b:
                 qty_on_store = {'qty_on_store': []}
@@ -103,7 +130,7 @@ def merge_store(qty_on_store_data, required_with_items):
                             max_collect_item = floor(int(v) / int(y['qty']))
                             max_collect_items['max_collect_items'].append({"item": k.upper(), "qty": max_collect_item})
                             qty_on_store['qty_on_store'].append({'item': k, 'qty': v})
-                #print(i['redress_kit'], max_collect_items)
+
                 required = i['total'][-1]['required']        
                 res = get_min_data(max_collect_items)
                 if not pd.isna(required) and res > required:
@@ -111,9 +138,8 @@ def merge_store(qty_on_store_data, required_with_items):
                 if res > 0:    
                     qty_on_store_data = update_store(qty_on_store_data, i['consist'], res)
                 
-                nd['series'].append({'redress_kit':i['redress_kit'], "total": i["total"], "consist": i["consist"], "max_collect_items": max_collect_items["max_collect_items"], "minimum_redress": res, 'qty_on_store': qty_on_store['qty_on_store']})
-        #print(nd)
-        return nd
+                max_collect_redress['series'].append({'redress_kit':i['redress_kit'], "total": i["total"], "consist": i["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store']})
+        return max_collect_redress
     except Exception as e:
         logger.critical(e)
                         
@@ -188,48 +214,67 @@ def handling_data(data):
                 'Can collect': [],
                 'Item': [],
                 'Description': [],
-                'Need to order Qty': []}
+                'Need to order': []}
+    try:
+        for i in data['series']:
+            required = i['total'][-1]['required']
+            max_collect = i['maximum_collect']
+            
+            if pd.isna(required) and max_collect == 0:
+                 required = 1
+            elif pd.isna(required) and max_collect > 0:
+                required = max_collect
+            for j in i['consist']:
+                need_qty = j['qty'] * required
+                for a in i['qty_on_store']:
+                    if j['item'].upper() == a['item'].upper() and need_qty > a['qty']:
+                        out_data["Redress Kit"].append(i['redress_kit'])
+                        out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
+                        out_data['Required'].append(required)
+                        out_data['Can collect'].append(max_collect)
+                        out_data['Item'].append(a['item'])
+                        out_data['Description'].append(j['description'])
+                        out_data['Need to order'].append(need_qty - a['qty']) 
+                    elif required <= max_collect and i['redress_kit'] not in out_data["Redress Kit"]:
+                        out_data["Redress Kit"].append(i['redress_kit'])                        #
+                        out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])        # NOT DRY - надо переделать
+                        out_data['Required'].append(required)                                   #
+                        out_data['Can collect'].append(max_collect)                             #
+                        out_data['Item'].append('N/a')
+                        out_data['Description'].append('N/a')
+                        out_data['Need to order'].append('N/a')
+        return out_data
     
-    for i in data['series']:
-        required = i['total'][-1]['required']
-        minimum_redress = i['minimum_redress']
+    except Exception as e:
+        logger.error(e)
         
-        for j in i['consist']:
-            need_qty = j['qty'] * required
-            for a in i['qty_on_store']:
-                if j['item'].upper() == a['item'].upper() and need_qty > a['qty']:
-                    out_data["Redress Kit"].append(i['redress_kit'])
-                    out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
-                    out_data['Required'].append(required)
-                    out_data['Can collect'].append(minimum_redress)
-                    out_data['Item'].append(a['item'])
-                    out_data['Description'].append(j['description'])
-                    out_data['Need to order Qty'].append(need_qty - a['qty']) 
-                elif required <= minimum_redress and i['redress_kit'] not in out_data["Redress Kit"]:
-                    out_data["Redress Kit"].append(i['redress_kit'])                        #
-                    out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])        # NOT DRY - надо переделать
-                    out_data['Required'].append(required)                                   #
-                    out_data['Can collect'].append(minimum_redress)                         #
-                    out_data['Item'].append('N/a')
-                    out_data['Description'].append('N/a')
-                    out_data['Need to order Qty'].append('N/a')
-                 
-    return(out_data)
-
+        
 def output_data(all_data):
     try:
         logger.info('End programm')
-        writer_obj = pd.ExcelWriter('test.xlsx', engine='xlsxwriter')
-        df = pd.DataFrame(all_data)
-        df.to_excel(writer_obj, sheet_name='Sheet', index=False)
-        writer_obj._save()
+        with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="overlay") as wb:
+            df = pd.DataFrame(all_data)
+            df.to_excel(wb, sheet_name='Sheet1', index=False)
+            ws = wb.sheets['Sheet1']
+            ws.column_dimensions['A'].width = 15
+            ws.column_dimensions['B'].width = 12
+            
+            # форматирование для xlsxwriter
+            # sheet.freeze_panes('A2')
+            # sheet.autofilter(0, 0, 0, 6)
+            # sheet.set_default_row(20)
+            # sheet.set_column(0, 0, 15)
+            # sheet.set_column('B:D', 12)
+            # sheet.set_column('E:E', 15)
+            # sheet.set_column('F:F', 30)
+            # sheet.set_column('G:G', 12)
     except Exception as e:
         logger.error(e)
             
             
 def main():
-    need_redress_kits, redress_kit_bom, qty_on_store_data = get_data_from_excel(FILE_PATH)
-    required_with_items = merge_consist(need_redress_kits, redress_kit_bom)
+    required_redress_kits, redress_kit_bom, qty_on_store_data = get_data_from_excel(FILE_PATH)
+    required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     raw_data = merge_store(qty_on_store_data, required_with_items)
     all_data = handling_data(raw_data)
     output_data(all_data)
