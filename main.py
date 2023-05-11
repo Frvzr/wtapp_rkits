@@ -3,7 +3,6 @@ import pandas as pd
 from math import floor
 import xlsxwriter
 import logging
-from datetime import datetime
 
 
 DIR = os.getcwd()
@@ -51,17 +50,17 @@ def get_data_from_excel(FILE_PATH):
             need_redress_kits["series"].append({"redress_kit": k.upper(), "total": []})
             for q, r in zip(v["Q-ty on store"], v["Req qty"]):
                 need_redress_kits["series"][-1]["total"].append({"q-ty on store": q, "required": r})
-        #print(need_redress_kits)
+
         rk_bom = pd.read_excel(FILE_PATH, sheet_name='redress_kits_items')
         redress_kit_bom = {"series": []}
         for i, g in rk_bom.groupby("Redress Part Number"):
             redress_kit_bom["series"].append({"redress kit": i.upper(), "consist": []})
-            for w, s in zip(g["Item Part Number"], g["Quantity pr."]):
-                redress_kit_bom["series"][-1]["consist"].append({'item': w, 'qty': s})
-
+            for w, s, t in zip(g["Item Part Number"], g["Quantity pr."], g['Description']):
+                redress_kit_bom["series"][-1]["consist"].append({'item': w, 'description': t, 'qty': s})
+        
         qty_on_store = pd.read_excel(FILE_PATH, sheet_name='Pivot Stock')
         qty_on_store_data = dict(zip(qty_on_store['Row Labels'], qty_on_store['Sum of QTY']))
-        #print(qty_on_store_data)
+
         return need_redress_kits, redress_kit_bom, qty_on_store_data
     except Exception as e:
         logger.critical(e)
@@ -188,6 +187,7 @@ def handling_data(data):
                 'Required': [],
                 'Can collect': [],
                 'Item': [],
+                'Description': [],
                 'Need to order Qty': []}
     
     for i in data['series']:
@@ -203,13 +203,15 @@ def handling_data(data):
                     out_data['Required'].append(required)
                     out_data['Can collect'].append(minimum_redress)
                     out_data['Item'].append(a['item'])
+                    out_data['Description'].append(j['description'])
                     out_data['Need to order Qty'].append(need_qty - a['qty']) 
                 elif required <= minimum_redress and i['redress_kit'] not in out_data["Redress Kit"]:
-                    out_data["Redress Kit"].append(i['redress_kit'])
-                    out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
-                    out_data['Required'].append(required)
-                    out_data['Can collect'].append(minimum_redress)
+                    out_data["Redress Kit"].append(i['redress_kit'])                        #
+                    out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])        # NOT DRY - надо переделать
+                    out_data['Required'].append(required)                                   #
+                    out_data['Can collect'].append(minimum_redress)                         #
                     out_data['Item'].append('N/a')
+                    out_data['Description'].append('N/a')
                     out_data['Need to order Qty'].append('N/a')
                  
     return(out_data)
