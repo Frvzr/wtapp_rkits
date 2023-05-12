@@ -3,7 +3,7 @@ import pandas as pd
 from math import floor
 import xlsxwriter
 import logging
-
+import pathlib
 
 DIR = os.getcwd()
 FILE_PATH = f'{DIR}\\required_redress_kit.xlsx'
@@ -251,8 +251,8 @@ def handling_data(data):
         
 def output_data(all_data):
     try:
-        logger.info('End programm')
-        with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="overlay") as wb:
+        out_path = pathlib.Path('can_collect_redress_kits.xlsx')
+        with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="overlay") if out_path.exists() else pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='w') as wb:
             df = pd.DataFrame(all_data)
             df.to_excel(wb, sheet_name='Sheet1', index=False)
             ws = wb.sheets['Sheet1']
@@ -268,6 +268,7 @@ def output_data(all_data):
             # sheet.set_column('E:E', 15)
             # sheet.set_column('F:F', 30)
             # sheet.set_column('G:G', 12)
+            logger.info('End programm')
     except Exception as e:
         logger.error(e)
             
