@@ -4,6 +4,7 @@ from math import floor
 import xlsxwriter
 import logging
 import pathlib
+from openpyxl.styles import Alignment
 
 DIR = os.getcwd()
 FILE_PATH = f'{DIR}\\required_redress_kit.xlsx'
@@ -169,44 +170,6 @@ def update_store(qty_on_store_data, required_items, res):
         logger.error(e)
 
 
-
-# def handling_data(data):
-#     try:
-#         out_data = {'Redress Kit':[],
-#                     'Qty on store': [],
-#                     'Required': [],
-#                     'Can collect': [],
-#                     'Comment':[]}
-        
-#         for i in data["series"]:
-            
-#             required = i['total'][-1]['required']
-#             minimum_redress = i['minimum_redress']
-            
-#             out_data["Redress Kit"].append(i['redress_kit'])
-#             out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
-#             out_data['Required'].append(required)
-#             out_data['Can collect'].append(minimum_redress)
-            
-#             if pd.isna(required) and minimum_redress == 0:
-#                 required = 1
-#             if minimum_redress < required or minimum_redress == 0:
-#                 comment = f'Не хватает до {required}: '
-#                 for j in i['consist']:
-#                     need_qty = j['qty'] * required
-#                     for x in i['qty_on_store']:
-#                         if j['item'].upper() == x['item'].upper() and need_qty > x['qty']:
-#                             comment += f"{x['item']} - {need_qty - x['qty']} шт, "
-#                 #print(comment)
-#                 out_data['Comment'].append(comment)
-#             else:
-#                 out_data['Comment'].append('N/a')
-#             #print(i['redress_kit'], out_data['Comment'])
-#         #print(out_data)
-#         return out_data
-#     except Exception as e:
-#         logger.error(e)
-
 def handling_data(data):
     out_data = {'Redress Kit':[],
                 'Qty on store': [],
@@ -247,27 +210,44 @@ def handling_data(data):
     
     except Exception as e:
         logger.error(e)
-        
+
+def bg_header(x):
+    return "background-color: #9ccc65"
+
+def get_text_color(val):
+    color = 'red' if val == 'Need to order' else 'black'
+    return 'color: %s' % color
+
+def get_center_text(val):
+    return 'text-align: center'
         
 def output_data(all_data):
     try:
         out_path = pathlib.Path('can_collect_redress_kits.xlsx')
-        with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="overlay") if out_path.exists() else pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='w') as wb:
+        with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="replace") if out_path.exists() else pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='w') as wb:
             df = pd.DataFrame(all_data)
-            df.to_excel(wb, sheet_name='Sheet1', index=False)
-            ws = wb.sheets['Sheet1']
-            ws.column_dimensions['A'].width = 15
-            ws.column_dimensions['B'].width = 12
+            SHEETNAME = 'Collect Redress Kit'
+            # мешанина по стилям
+            df.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME, index=False)
+            ws = wb.sheets[SHEETNAME]
+            ws.auto_filter.ref='a:g'
+            ws.column_dimensions['A'].width = 13
+            ws.column_dimensions['B'].width = 8
+            ws.column_dimensions['C'].width = 10
+            ws.column_dimensions['C'].width = 12
+            ws.column_dimensions['D'].width = 9
+            ws.column_dimensions['E'].width = 17
+            ws.column_dimensions['F'].width = 33
+            ws.column_dimensions['G'].width = 10
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['D1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['E1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['F1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['G1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
-            # форматирование для xlsxwriter
-            # sheet.freeze_panes('A2')
-            # sheet.autofilter(0, 0, 0, 6)
-            # sheet.set_default_row(20)
-            # sheet.set_column(0, 0, 15)
-            # sheet.set_column('B:D', 12)
-            # sheet.set_column('E:E', 15)
-            # sheet.set_column('F:F', 30)
-            # sheet.set_column('G:G', 12)
+            
             logger.info('End programm')
     except Exception as e:
         logger.error(e)
