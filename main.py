@@ -124,7 +124,8 @@ def merge_store(qty_on_store_data, required_with_items):
         max_collect_redress = {'series': []}
         for a, b in required_with_items.items():
             for i in b:
-                required = i['total'][-1]['required'] 
+                required = i['total'][-1]['required']
+                #print(required) 
                 qty_on_store = {'qty_on_store': []}
                 max_collect_items = {'max_collect_items': []}
                 reserved = {'reserved': []}
@@ -132,31 +133,40 @@ def merge_store(qty_on_store_data, required_with_items):
                     for k, v in qty_on_store_data.items():
                         if y['item'] == k.upper():
                             max_collect_item = floor(int(v) / int(y['qty']))
-                            if int(v) > 0:
-                                req = int(y['qty']) * int(required)
-                                reserv = int(v) - req
-                                if reserv >= 0:
-                                    reserved['reserved'].append({"item": k.upper(), "qty": req})
-                                elif reserv < 0:
-                                    reserved['reserved'].append({"item": k.upper(), "qty": v})
-                            else:
-                                reserved['reserved'].append({"item": k.upper(), "qty": 0})
-
                             max_collect_items['max_collect_items'].append({"item": k.upper(), "qty": max_collect_item})
                             qty_on_store['qty_on_store'].append({'item': k, 'qty': v})
-                            
-                print(reserved)      
+
+                            if not pd.isna(required):
+                                reserved = get_reserved(required, i, qty_on_store_data)
+                                
                 res = get_min_data(max_collect_items)
                 if not pd.isna(required) and res > required:
                     res = required
-                qty_on_store_data = update_store(qty_on_store_data, i['consist'], res, reserved['reserved'])
+                if pd.isna(required):
+                    reserved = get_reserved(res, i, qty_on_store_data)
+                qty_on_store_data = update_store(qty_on_store_data, reserved['reserved'])
                 
                 max_collect_redress['series'].append({'redress_kit':i['redress_kit'], "total": i["total"], "consist": i["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved']})
-                #print(max_collect_items)
         return max_collect_redress, qty_on_store_data
     except Exception as e:
         logger.critical(e)
-                        
+        
+def get_reserved(res, b, qty_on_store_data):
+    reserved = {'reserved': []}
+    required = res if res > 0 else 1
+    for y in b['consist']:
+        for k, v in qty_on_store_data.items():
+            if y['item'] == k.upper():
+                if int(v) > 0:
+                    req = int(y['qty']) * int(required)
+                    reserv = int(v) - req
+                    if reserv >= 0:
+                        reserved['reserved'].append({"item": k.upper(), "qty": req})
+                    elif reserv < 0:
+                        reserved['reserved'].append({"item": k.upper(), "qty": v})
+                else:
+                    reserved['reserved'].append({"item": k.upper(), "qty": 0})
+    return reserved
 
 def get_min_data(data):
     try:
@@ -172,15 +182,9 @@ def get_min_data(data):
         logger.error(f'{data} - {e}')
 
 
-def update_store(qty_on_store_data, required_items, res, reserved):
-    
-    try:
-        if reserved:
-            need_remove = [dict(i, **j) for i, j in zip(required_items, reserved)]
-        else:
-            need_remove = required_items
-                 
-        for j in need_remove:
+def update_store(qty_on_store_data, reserved):
+    try:         
+        for j in reserved:
             for k, v in qty_on_store_data.items():  
                 if j['item'] == k.upper() and (v - int(j['qty'])) > 0:
                     qty_on_store_data[k] = v - int(j['qty'])                              
@@ -192,7 +196,6 @@ def update_store(qty_on_store_data, required_items, res, reserved):
 
 
 def handling_data(data, updated_store):
-    #print(data)
     out_data = {'Redress Kit':[],
                 'Qty on store': [],
                 'Required': [],
@@ -231,15 +234,7 @@ def handling_data(data, updated_store):
                             else:
                                 out_data['Need to order'].append(0)
                             out_data['Reserved'].append(b['qty']) 
-                        # elif required <= max_collect and i['redress_kit'] not in out_data["Redress Kit"]:
-                        #     out_data["Redress Kit"].append(i['redress_kit'])                        #
-                        #     out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])        # NOT DRY - надо переделать
-                        #     out_data['Required'].append(required)                                   #
-                        #     out_data['Can collect'].append(max_collect)                             #
-                        #     out_data['Item'].append('N/a')
-                        #     out_data['Description'].append('N/a')
-                        #     out_data['Need to order'].append(0)
-            print(out_data)
+
         
         for k, v in updated_store.items():
             store_data['Item'].append(k)
@@ -261,7 +256,6 @@ def get_center_text(val):
     return 'text-align: center'
         
 def output_data(all_data, store_data):
-    #print(all_data)
     try:
         out_path = pathlib.Path('can_collect_redress_kits.xlsx')
         with pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='a', if_sheet_exists="replace") if out_path.exists() else pd.ExcelWriter('can_collect_redress_kits.xlsx', engine="openpyxl", mode='w') as wb:
