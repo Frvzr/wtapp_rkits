@@ -125,7 +125,6 @@ def merge_store(qty_on_store_data, required_with_items):
         for a, b in required_with_items.items():
             for i in b:
                 required = i['total'][-1]['required']
-                #print(required) 
                 qty_on_store = {'qty_on_store': []}
                 max_collect_items = {'max_collect_items': []}
                 reserved = {'reserved': []}
@@ -151,10 +150,10 @@ def merge_store(qty_on_store_data, required_with_items):
     except Exception as e:
         logger.critical(e)
         
-def get_reserved(res, b, qty_on_store_data):
+def get_reserved(res, redress, qty_on_store_data):
     reserved = {'reserved': []}
-    required = res if res > 0 else 1
-    for y in b['consist']:
+    required = res if res >= 0 else 1
+    for y in redress['consist']:
         for k, v in qty_on_store_data.items():
             if y['item'] == k.upper():
                 if int(v) > 0:
@@ -179,7 +178,7 @@ def get_min_data(data):
         else:
             return 0
     except  Exception as e:
-        logger.error(f'{data} - {e}')
+        logger.error(e)
 
 
 def update_store(qty_on_store_data, reserved):
@@ -201,6 +200,7 @@ def handling_data(data, updated_store):
                 'Required': [],
                 'Can collect': [],
                 'Item': [],
+                'Qty per kit':[],
                 'Description': [],
                 'Need to order': [],
                 'Reserved':[]
@@ -222,12 +222,13 @@ def handling_data(data, updated_store):
                 need_qty = j['qty'] * required
                 for a in i['qty_on_store']:
                     for b in i['reserved']:
-                        if j['item'].upper() == a['item'].upper() and j['item'].upper() == b['item'].upper(): #and need_qty > a['qty']:
+                        if j['item'].upper() == a['item'].upper() and j['item'].upper() == b['item'].upper():
                             out_data["Redress Kit"].append(i['redress_kit'])
                             out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
                             out_data['Required'].append(required)
                             out_data['Can collect'].append(max_collect)
                             out_data['Item'].append(a['item'])
+                            out_data['Qty per kit'].append(j['qty'])
                             out_data['Description'].append(j['description'])
                             if (need_qty - a['qty']) > 0:
                                 out_data['Need to order'].append(need_qty - a['qty'])
@@ -235,13 +236,11 @@ def handling_data(data, updated_store):
                                 out_data['Need to order'].append(0)
                             out_data['Reserved'].append(b['qty']) 
 
-        
         for k, v in updated_store.items():
             store_data['Item'].append(k)
             store_data['Quantity'].append(v)              
         
         return out_data, store_data
-    
     except Exception as e:
         logger.error(e)
 
@@ -266,16 +265,19 @@ def output_data(all_data, store_data):
   
             df.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME, index=False)
             df_store.to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
+            df_store.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
+            
             ws = wb.sheets[SHEETNAME]
             ws.auto_filter.ref='a:g'
             ws.column_dimensions['A'].width = 13
             ws.column_dimensions['B'].width = 8
             ws.column_dimensions['C'].width = 10
-            ws.column_dimensions['C'].width = 12
-            ws.column_dimensions['D'].width = 9
-            ws.column_dimensions['E'].width = 17
-            ws.column_dimensions['F'].width = 33
-            ws.column_dimensions['G'].width = 10
+            ws.column_dimensions['D'].width = 10
+            ws.column_dimensions['E'].width = 12
+            ws.column_dimensions['F'].width = 8
+            ws.column_dimensions['G'].width = 30
+            ws.column_dimensions['H'].width = 10
+            ws.column_dimensions['i'].width = 10
             ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             ws['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -284,6 +286,14 @@ def output_data(all_data, store_data):
             ws['F1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             ws['G1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             ws['H1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['I1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            
+            ws_store = wb.sheets[SHEETNAME_STORE]
+            ws_store.auto_filter.ref='a:b'
+            ws_store.column_dimensions['A'].width = 20
+            ws_store.column_dimensions['B'].width = 11
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
             logger.info('End programm')
     except Exception as e:
