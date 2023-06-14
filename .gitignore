@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 ~$*
 exe/
+*.xlsx
+New item collecting tool/

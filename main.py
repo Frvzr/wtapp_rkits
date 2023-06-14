@@ -71,7 +71,6 @@ def get_data_from_excel(FILE_PATH):
             for quantity_on_store, required_quantity in zip(v["Q-ty on store"], v["Req qty"]):
                 required_redress_kits["series"][-1]["total"].append({"q-ty on store": quantity_on_store, "required": required_quantity})
 
-        # Можно не создавать 3 словаря а сразу вливать в один...
         rk_bom = pd.read_excel(FILE_PATH, sheet_name='Redress kit BOM')
         redress_kit_bom = {"series": []}
         for redress_kit_, redress_kit_items in rk_bom.groupby("Redress Part Number"):
@@ -81,8 +80,9 @@ def get_data_from_excel(FILE_PATH):
         
         qty_on_store = pd.read_excel(FILE_PATH, sheet_name='Pivot Stock')
         qty_on_store_data = dict(zip(qty_on_store['Part Number'], qty_on_store['Sum of QTY']))
+        qty_on_store_data_upper = {k.upper(): v for k, v in qty_on_store_data.items()}
 
-        return required_redress_kits, redress_kit_bom, qty_on_store_data
+        return required_redress_kits, redress_kit_bom, qty_on_store_data_upper
     except Exception as e:
         logger.critical(e)
         
@@ -129,15 +129,18 @@ def merge_store(qty_on_store_data, required_with_items):
                 max_collect_items = {'max_collect_items': []}
                 reserved = {'reserved': []}
                 for y in i['consist']:
+                    if y['item'] not in qty_on_store_data:
+                        print(f"This item: {y['item']} is out of stock")
+                        qty_on_store_data[y['item']] = 0
                     for k, v in qty_on_store_data.items():
                         if y['item'] == k.upper():
-                            max_collect_item = floor(int(v) / int(y['qty']))
+                            max_collect_item = floor(v / y['qty'])
                             max_collect_items['max_collect_items'].append({"item": k.upper(), "qty": max_collect_item})
                             qty_on_store['qty_on_store'].append({'item': k, 'qty': v})
 
                             if not pd.isna(required):
                                 reserved = get_reserved(required, i, qty_on_store_data)
-                                
+                        
                 res = get_min_data(max_collect_items)
                 if not pd.isna(required) and res > required:
                     res = required
@@ -156,9 +159,9 @@ def get_reserved(res, redress, qty_on_store_data):
     for y in redress['consist']:
         for k, v in qty_on_store_data.items():
             if y['item'] == k.upper():
-                if int(v) > 0:
-                    req = int(y['qty']) * int(required)
-                    reserv = int(v) - req
+                if v > 0:
+                    req = y['qty'] * int(required)
+                    reserv = v - req
                     if reserv >= 0:
                         reserved['reserved'].append({"item": k.upper(), "qty": req})
                     elif reserv < 0:
@@ -177,7 +180,7 @@ def get_min_data(data):
             return min(min_data)
         else:
             return 0
-    except  Exception as e:
+    except Exception as e:
         logger.error(e)
 
 
@@ -185,9 +188,9 @@ def update_store(qty_on_store_data, reserved):
     try:         
         for j in reserved:
             for k, v in qty_on_store_data.items():  
-                if j['item'] == k.upper() and (v - int(j['qty'])) > 0:
-                    qty_on_store_data[k] = v - int(j['qty'])                              
-                elif j['item'] == k.upper() and (v - int(j['qty'])) <= 0:
+                if j['item'] == k.upper() and (v - j['qty']) > 0:
+                    qty_on_store_data[k] = v - j['qty']                             
+                elif j['item'] == k.upper() and (v - j['qty']) <= 0:
                     qty_on_store_data[k] = 0
         return qty_on_store_data
     except Exception as e:
@@ -304,9 +307,9 @@ def main():
     required_redress_kits, redress_kit_bom, qty_on_store_data = get_data_from_excel(FILE_PATH)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     raw_data, updated_store = merge_store(qty_on_store_data, required_with_items)
+    #print(raw_data)
     all_data, store_data = handling_data(raw_data, updated_store)
     output_data(all_data, store_data)
-    
     
 if __name__ == '__main__':
     main()
