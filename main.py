@@ -4,7 +4,7 @@ from math import floor
 import logging
 import pathlib
 from openpyxl.styles import Alignment
-import decimal
+
 
 DIR = os.getcwd()
 FILE_PATH = f'{DIR}\\required_redress_kit.xlsx'
@@ -76,11 +76,15 @@ def get_data_from_excel(FILE_PATH):
         for redress_kit_, redress_kit_items in rk_bom.groupby("Redress Part Number"):
             redress_kit_bom["series"].append({"redress kit": redress_kit_.upper(), "consist": []})
             for w, s, t in zip(redress_kit_items["Item Part Number"], redress_kit_items["Quantity pr."], redress_kit_items['Description']):
-                redress_kit_bom["series"][-1]["consist"].append({'item': w, 'description': t, 'qty': s})
+                if s == 0 or s == '0':
+                    print(redress_kit_, w, s, t)
+                    continue
+                else:
+                    redress_kit_bom["series"][-1]["consist"].append({'item': w, 'description': t, 'qty': s})
         
         qty_on_store = pd.read_excel(FILE_PATH, sheet_name='Pivot Stock')
         qty_on_store_data = dict(zip(qty_on_store['Part Number'], qty_on_store['Sum of QTY']))
-        qty_on_store_data_upper = {k.upper(): v for k, v in qty_on_store_data.items()}
+        qty_on_store_data_upper = {str(k).upper(): v for k, v in qty_on_store_data.items()}
 
         return required_redress_kits, redress_kit_bom, qty_on_store_data_upper
     except Exception as e:
@@ -307,10 +311,12 @@ def main():
     required_redress_kits, redress_kit_bom, qty_on_store_data = get_data_from_excel(FILE_PATH)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     raw_data, updated_store = merge_store(qty_on_store_data, required_with_items)
-    #print(raw_data)
     all_data, store_data = handling_data(raw_data, updated_store)
     output_data(all_data, store_data)
     
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.error(e)
     
