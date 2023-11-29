@@ -39,11 +39,10 @@ def get_data_from_excel(FILE_PATH):
     
     serial_n = df.groupby(['Part Number', 'Stock', 'SN']).agg(agg_func_math).to_dict()
     print(serial_n)
-   
  
 def main():
     test_data = get_data_from_excel(FILE_PATH_TEST)
-    print(test_data)
+    #print(test_data)
 
 
 if __name__ == '__main__':
