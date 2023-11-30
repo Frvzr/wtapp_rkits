@@ -4,19 +4,10 @@ from math import floor
 
 
 DIR = os.getcwd()
-FILE_PATH_TEST = f'{DIR}\\TPCI - Invetory Control 2023_20231128.xlsx'
+FILE_PATH_TEST = f'{DIR}\\required_redress_kit.xlsx'
 
 
 def get_data_from_excel(FILE_PATH):
-    """
-    Функция получает данные с файла
-
-    Args:
-        FILE_PATH (_str_): Путь к файлу с обрабатываемыми данными
-
-    Returns:
-        (_dict_): Функция возвращает данные с 3-х заранее известных страниц файла
-    """
 
     df = pd.read_excel(FILE_PATH, sheet_name='Stock 2023')
     dataset = {'Main':{}, 'Ru Ops': {}}
