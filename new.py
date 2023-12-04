@@ -26,7 +26,15 @@ def get_data_from_excel_stock(path):
     total = {k: items_by_stock['Main'].get(k, 0) + items_by_stock['Ru Ops'].get(k, 0) for k in set(items_by_stock['Main']) | set(items_by_stock['Ru Ops'])}
 
     serial_items = stock_dataframe.groupby(['Part Number', 'Stock', 'SN']).agg(agg_qty_sum).to_dict()
-    return items_by_stock, total, serial_items
+    actual_serial_items = {}
+    for items_sn in serial_items.values():
+        for item_sn, qty_sn in items_sn.items():
+            if qty_sn == 0:
+                continue
+            else:
+                actual_serial_items[item_sn] = qty_sn
+
+    return items_by_stock, total, actual_serial_items
 
 
 def get_data_from_excel_required_redress(path):
@@ -62,7 +70,7 @@ def merge_consist(required_redress_kits, redress_kit_bom):
     return required_with_items
 
 
-def merge_store(qty_on_store_data, required_with_items, items_by_stock):
+def merge_store(qty_on_store_data, required_with_items, serial_items):
     max_collect_redress = {'maximum collect rkits': []}
     for item in required_with_items['Items for redres kits']:
         required = item['total'][-1]['required']
@@ -81,57 +89,54 @@ def merge_store(qty_on_store_data, required_with_items, items_by_stock):
                     qty_on_store['qty_on_store'].append({'item': k, 'qty': v})
 
                     if not pd.isna(required):
-                        reserved, balance, main, ru_ops = get_reserved(required, item, qty_on_store_data, items_by_stock)
+                        reserved = get_reserved(required, item, qty_on_store_data)
         res = get_min_data(max_collect_items)
         if not pd.isna(required) and res > required:
             res = required
         if pd.isna(required):
-            reserved, balance, main, ru_ops = get_reserved(res, item, qty_on_store_data, items_by_stock)
+            reserved = get_reserved(res, item, qty_on_store_data)
         qty_on_store_data = update_store(qty_on_store_data, reserved['reserved'])
                 
-        max_collect_redress['maximum collect rkits'].append({'redress_kit':item['redress_kit'], "total": item["total"], "consist": item["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved'], 'balance': balance['balance']})
-        print(main, ru_ops)
+        max_collect_redress['maximum collect rkits'].append({'redress_kit':item['redress_kit'], "total": item["total"], "consist": item["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved']})
     return max_collect_redress, qty_on_store_data
 
 
-def get_reserved(res, redress, qty_on_store_data, items_by_stock):
+def get_reserved(res, redress, qty_on_store_data):
     reserved = {'reserved': []}
-    balance = {'balance': []}
-    main = {'main': []}
-    ru_ops = {'ruops': []}
+    # balance = {'balance': []}
+    # main = {'main': []}
+    # ru_ops = {'ruops': []}
     required = res if res >= 0 else 1
     for y in redress['consist']:
         for k, v in qty_on_store_data.items():
             if y['item'] == k.upper():
-                total_stock = items_by_stock['Main'].get(y['item'], 0) + items_by_stock['Ru Ops'].get(y['item'], 0)
+                # total_stock = items_by_stock['Main'].get(y['item'], 0) + items_by_stock['Ru Ops'].get(y['item'], 0)
                 if v > 0:
                     req = y['qty'] * int(required)
                     reserv = v - req
                     
-                    if items_by_stock['Main'][y['item']] - (total_stock - reserv) > 0:
-                        
-                        main['main'].append({"item": k.upper(), "qty": items_by_stock['Main'][y['item']] - (total_stock - reserv)})
-                        ru_ops['ruops'].append({"item": k.upper(), "qty": items_by_stock['Ru Ops'].get(y['item'], 0)})
-                    elif items_by_stock['Main'][y['item']] - (total_stock - reserv) < 0:
-                        main['main'].append({"item": k.upper(), "qty": 0})
-                        if y['item'] in items_by_stock['Ru Ops'] and items_by_stock['Ru Ops'][y['item']] - (total_stock - reserv) > 0:
-                            
-                            ru_ops['ruops'].append({"item": k.upper(), "qty": items_by_stock['Ru Ops'][y['item']] - ((total_stock - reserv) - items_by_stock['Main'][y['item']])})
-                        else:
-                            ru_ops['ruops'].append({"item": k.upper(), "qty": 0})
+                    # if items_by_stock['Main'][y['item']] - (total_stock - reserv) >= 0:
+                    #     main['main'].append({"item": k.upper(), "qty": items_by_stock['Main'][y['item']] - (total_stock - reserv)})
+                    #     ru_ops['ruops'].append({"item": k.upper(), "qty": items_by_stock['Ru Ops'].get(y['item'], 0)})
+                    # elif items_by_stock['Main'][y['item']] - (total_stock - reserv) < 0:
+                    #     main['main'].append({"item": k.upper(), "qty": 0})
+                    #     if y['item'] in items_by_stock['Ru Ops'] and items_by_stock['Ru Ops'][y['item']] - (total_stock - reserv) >= 0:
+                    #         ru_ops['ruops'].append({"item": k.upper(), "qty": items_by_stock['Ru Ops'][y['item']] - ((total_stock - reserv) - items_by_stock['Main'][y['item']])})
+                    #     else:
+                    #         ru_ops['ruops'].append({"item": k.upper(), "qty": 0})
                             
                     if reserv >= 0:
                         reserved['reserved'].append({"item": k.upper(), "qty": req})
-                        balance['balance'].append({"item": k.upper(), "qty": v - req})
+                        # balance['balance'].append({"item": k.upper(), "qty": v - req})
                     elif reserv < 0:
                         reserved['reserved'].append({"item": k.upper(), "qty": v})
-                        balance['balance'].append({"item": k.upper(), "qty": 0})
+                        # balance['balance'].append({"item": k.upper(), "qty": 0})
                 else:
                     reserved['reserved'].append({"item": k.upper(), "qty": 0})
-                    balance['balance'].append({"item": k.upper(), "qty": 0})
-                    ru_ops['ruops'].append({"item": k.upper(), "qty": 0})
-                    main['main'].append({"item": k.upper(), "qty": 0})
-    return reserved, balance, main, ru_ops
+                    # balance['balance'].append({"item": k.upper(), "qty": 0})
+                    # ru_ops['ruops'].append({"item": k.upper(), "qty": 0})
+                    # main['main'].append({"item": k.upper(), "qty": 0})
+    return reserved
 
 
 def get_min_data(data):
@@ -155,7 +160,7 @@ def update_store(qty_on_store_data, reserved):
     return qty_on_store_data
 
 
-def handling_data(data, updated_store):
+def handling_data(data, updated_store, items_by_stock):
     out_data = {'Redress Kit':[],
                 'Qty on store': [],
                 'Required': [],
@@ -165,7 +170,6 @@ def handling_data(data, updated_store):
                 'Description': [],
                 'Need to order': [],
                 'Reserved':[],
-                'Total': [],
                 'Main': [],
                 'Ru Ops': []
     }
@@ -173,16 +177,17 @@ def handling_data(data, updated_store):
     store_data = {'Item': [],
                   'Quantity': []}
     
-    for i in data['series']:
+    for i in data['maximum collect rkits']:
         required = i['total'][-1]['required']
         max_collect = i['maximum_collect']
-            
         if pd.isna(required) and max_collect == 0:
                  required = 1
         elif pd.isna(required) and max_collect > 0:
             required = max_collect
         for j in i['consist']:
             need_qty = j['qty'] * required
+            item_from_main = items_by_stock['Main'].get(j['item'], 0)
+            item_from_ruops = items_by_stock['Ru Ops'].get(j['item'], 0)
             for a in i['qty_on_store']:
                 for b in i['reserved']:
                     if j['item'].upper() == a['item'].upper() and j['item'].upper() == b['item'].upper():
@@ -197,7 +202,18 @@ def handling_data(data, updated_store):
                             out_data['Need to order'].append(need_qty - a['qty'])
                         else:
                             out_data['Need to order'].append(0)
-                        out_data['Reserved'].append(b['qty']) 
+                        out_data['Reserved'].append(b['qty'])
+                        out_data['Main'].append(item_from_main)
+                        out_data['Ru Ops'].append(item_from_ruops)
+                        # for item_in_balance in i['balance']:
+                        #     if item_in_balance['item'] == a['item'].upper():
+                        #         out_data['Total'].append(item_in_balance['qty'])
+                        # for item_in_main in i['main']:
+                        #     if item_in_main['item'] == a['item'].upper():
+                        #         out_data['Main'].append(item_in_main['qty'])
+                        # for item_in_ruops in i['ruops']:
+                        #     if item_in_ruops['item'] == a['item'].upper():
+                        #         out_data['Ru Ops'].append(item_in_ruops['qty'])
 
     for k, v in updated_store.items():
         store_data['Item'].append(k)
@@ -234,6 +250,8 @@ def output_data(all_data, store_data):
             
         ws = wb.sheets[SHEETNAME]
         ws.auto_filter.ref='a:g'
+        fr = ws['A1']
+        
         ws.column_dimensions['A'].width = 13
         ws.column_dimensions['B'].width = 8
         ws.column_dimensions['C'].width = 10
@@ -245,7 +263,7 @@ def output_data(all_data, store_data):
         ws.column_dimensions['i'].width = 10
         ws.column_dimensions['j'].width = 10
         ws.column_dimensions['k'].width = 10
-        ws.column_dimensions['l'].width = 10
+        #ws.column_dimensions['l'].width = 10
         ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -257,8 +275,9 @@ def output_data(all_data, store_data):
         ws['I1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws['J1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws['K1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['L1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            
+        #ws['L1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.freeze_panes = fr   
+
         ws_store = wb.sheets[SHEETNAME_STORE]
         ws_store.auto_filter.ref='a:b'
         ws_store.column_dimensions['A'].width = 20
@@ -270,11 +289,15 @@ def output_data(all_data, store_data):
             
 def main():
     items_by_stock, total, serial_items = get_data_from_excel_stock(FILE_PATH)
+    #print(serial_items)
     required_redress_kits = get_data_from_excel_required_redress(FILE_PATH)
     redress_kit_bom = get_data_from_excel_redress_kits_bom(FILE_PATH)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
-    data, updated_store = merge_store(total, required_with_items, items_by_stock)
-    #print(items_by_stock)
+    data, updated_store = merge_store(total, required_with_items, serial_items)
+    print(data)
+    all_data, store_data = handling_data(data, updated_store, items_by_stock)
+    output_data(all_data, store_data)
+    
     
     
 if __name__ == '__main__':
