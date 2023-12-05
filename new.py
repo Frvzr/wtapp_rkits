@@ -70,6 +70,10 @@ def merge_consist(required_redress_kits, redress_kit_bom):
     return required_with_items
 
 
+def merge_serial_items():
+    pass
+
+
 def merge_store(qty_on_store_data, required_with_items, serial_items):
     max_collect_redress = {'maximum collect rkits': []}
     for item in required_with_items['Items for redres kits']:
@@ -77,7 +81,7 @@ def merge_store(qty_on_store_data, required_with_items, serial_items):
         qty_on_store = {'qty_on_store': []}
         max_collect_items = {'max_collect_items': []}
         reserved = {'reserved': []}
-        serial_items = {}
+        serial = {'serial_items': []}
         for y in item['consist']:
             if y['item'] not in qty_on_store_data:
                 print(f"This item: {y['item']} is out of stock")
@@ -90,14 +94,15 @@ def merge_store(qty_on_store_data, required_with_items, serial_items):
 
                     if not pd.isna(required):
                         reserved = get_reserved(required, item, qty_on_store_data)
+            
         res = get_min_data(max_collect_items)
         if not pd.isna(required) and res > required:
             res = required
         if pd.isna(required):
             reserved = get_reserved(res, item, qty_on_store_data)
-        qty_on_store_data = update_store(qty_on_store_data, reserved['reserved'])
-                
+        qty_on_store_data = update_store(qty_on_store_data, reserved['reserved'])    
         max_collect_redress['maximum collect rkits'].append({'redress_kit':item['redress_kit'], "total": item["total"], "consist": item["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved']})
+    
     return max_collect_redress, qty_on_store_data
 
 
@@ -289,12 +294,14 @@ def output_data(all_data, store_data):
             
 def main():
     items_by_stock, total, serial_items = get_data_from_excel_stock(FILE_PATH)
-    #print(serial_items)
     required_redress_kits = get_data_from_excel_required_redress(FILE_PATH)
     redress_kit_bom = get_data_from_excel_redress_kits_bom(FILE_PATH)
+    test_one = 'T323'
+    for k, v in serial_items.items():
+        if k[0] == test_one and k[1] == 'RU Ops':
+            print(k, v)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     data, updated_store = merge_store(total, required_with_items, serial_items)
-    print(data)
     all_data, store_data = handling_data(data, updated_store, items_by_stock)
     output_data(all_data, store_data)
     
