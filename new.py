@@ -91,18 +91,22 @@ def merge_store(qty_on_store_data, required_with_items, serial_items):
                     max_collect_item = floor(v / y['qty'])
                     max_collect_items['max_collect_items'].append({"item": k.upper(), "qty": max_collect_item})
                     qty_on_store['qty_on_store'].append({'item': k, 'qty': v})
-
                     if not pd.isna(required):
                         reserved = get_reserved(required, item, qty_on_store_data)
             
+            for sn_item, sn_qty in serial_items.items():
+                if sn_item[0] == y['item']:
+                    serial['serial_items'].append(({sn_item: sn_qty}))
+        
+                           
         res = get_min_data(max_collect_items)
         if not pd.isna(required) and res > required:
             res = required
         if pd.isna(required):
             reserved = get_reserved(res, item, qty_on_store_data)
         qty_on_store_data = update_store(qty_on_store_data, reserved['reserved'])    
-        max_collect_redress['maximum collect rkits'].append({'redress_kit':item['redress_kit'], "total": item["total"], "consist": item["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved']})
-    
+        max_collect_redress['maximum collect rkits'].append({'redress_kit':item['redress_kit'], "total": item["total"], "consist": item["consist"], "max_collect_items": max_collect_items["max_collect_items"], "maximum_collect": res, 'qty_on_store': qty_on_store['qty_on_store'], 'reserved': reserved['reserved'], 'serial': serial['serial_items']})
+    #print(max_collect_redress)
     return max_collect_redress, qty_on_store_data
 
 
@@ -176,7 +180,10 @@ def handling_data(data, updated_store, items_by_stock):
                 'Need to order': [],
                 'Reserved':[],
                 'Main': [],
-                'Ru Ops': []
+                'Ru Ops': [],
+                'Serial Number': [],
+                'Qty Main': [],
+                'Qty RU Ops': []
     }
     
     store_data = {'Item': [],
@@ -196,34 +203,40 @@ def handling_data(data, updated_store, items_by_stock):
             for a in i['qty_on_store']:
                 for b in i['reserved']:
                     if j['item'].upper() == a['item'].upper() and j['item'].upper() == b['item'].upper():
-                        out_data["Redress Kit"].append(i['redress_kit'])
-                        out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
-                        out_data['Required'].append(required)
-                        out_data['Can collect'].append(max_collect)
-                        out_data['Item'].append(a['item'])
-                        out_data['Qty per kit'].append(j['qty'])
-                        out_data['Description'].append(j['description'])
-                        if (need_qty - a['qty']) > 0:
-                            out_data['Need to order'].append(need_qty - a['qty'])
-                        else:
-                            out_data['Need to order'].append(0)
-                        out_data['Reserved'].append(b['qty'])
-                        out_data['Main'].append(item_from_main)
-                        out_data['Ru Ops'].append(item_from_ruops)
-                        # for item_in_balance in i['balance']:
-                        #     if item_in_balance['item'] == a['item'].upper():
-                        #         out_data['Total'].append(item_in_balance['qty'])
-                        # for item_in_main in i['main']:
-                        #     if item_in_main['item'] == a['item'].upper():
-                        #         out_data['Main'].append(item_in_main['qty'])
-                        # for item_in_ruops in i['ruops']:
-                        #     if item_in_ruops['item'] == a['item'].upper():
-                        #         out_data['Ru Ops'].append(item_in_ruops['qty'])
-
+                        for q in i['serial']:
+                            for k, v in q.items():
+                                if j['item'].upper() == k[0]:
+                                    out_data['Serial Number'].append(k[2])
+                                    if k[1] == 'Main':
+                                        out_data['Qty Main'].append(v)
+                                        out_data['Qty RU Ops'].append(0)  
+                                    elif k[1] == 'RU Ops':
+                                        out_data['Qty RU Ops'].append(v)
+                                        out_data['Qty Main'].append(0)
+                                else:
+                                    out_data['Serial Number'].append(0)
+                                    out_data['Qty Main'].append(0)
+                                    out_data['Qty RU Ops'].append(0)    
+                                out_data["Redress Kit"].append(i['redress_kit'])
+                                out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
+                                out_data['Required'].append(required)
+                                out_data['Can collect'].append(max_collect)
+                                out_data['Item'].append(a['item'])
+                                out_data['Qty per kit'].append(j['qty'])
+                                out_data['Description'].append(j['description'])
+                                if (need_qty - a['qty']) > 0:
+                                    out_data['Need to order'].append(need_qty - a['qty'])
+                                else:
+                                    out_data['Need to order'].append(0)
+                                out_data['Reserved'].append(b['qty'])
+                                out_data['Main'].append(item_from_main)
+                                out_data['Ru Ops'].append(item_from_ruops)  
+                                  
     for k, v in updated_store.items():
         store_data['Item'].append(k)
         store_data['Quantity'].append(v)              
-        
+    for jh in out_data.values():
+        print(len(jh)) 
     return out_data, store_data
 
 
@@ -296,10 +309,10 @@ def main():
     items_by_stock, total, serial_items = get_data_from_excel_stock(FILE_PATH)
     required_redress_kits = get_data_from_excel_required_redress(FILE_PATH)
     redress_kit_bom = get_data_from_excel_redress_kits_bom(FILE_PATH)
-    test_one = 'T323'
-    for k, v in serial_items.items():
-        if k[0] == test_one and k[1] == 'RU Ops':
-            print(k, v)
+    # test_one = 'T323'
+    # for k, v in serial_items.items():
+    #     if k[0] == test_one and k[1] == 'RU Ops':
+    #         print(k, v)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     data, updated_store = merge_store(total, required_with_items, serial_items)
     all_data, store_data = handling_data(data, updated_store, items_by_stock)
