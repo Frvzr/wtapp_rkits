@@ -96,7 +96,7 @@ def merge_store(qty_on_store_data, required_with_items, serial_items):
             
             for sn_item, sn_qty in serial_items.items():
                 if sn_item[0] == y['item']:
-                    serial['serial_items'].append(({sn_item: sn_qty}))
+                    serial['serial_items'].append(({'sn_item': sn_item[0], 'store': sn_item[1], 'serial_number': sn_item[2], 'sn_qty': sn_qty}))
         
                            
         res = get_min_data(max_collect_items)
@@ -197,26 +197,30 @@ def handling_data(data, updated_store, items_by_stock):
         elif pd.isna(required) and max_collect > 0:
             required = max_collect
         for j in i['consist']:
+            cnt = 0
+            req_item = j['item'].upper()
             need_qty = j['qty'] * required
-            item_from_main = items_by_stock['Main'].get(j['item'], 0)
-            item_from_ruops = items_by_stock['Ru Ops'].get(j['item'], 0)
+            item_from_main = items_by_stock['Main'].get(req_item, 0)
+            item_from_ruops = items_by_stock['Ru Ops'].get(req_item, 0)
             for a in i['qty_on_store']:
                 for b in i['reserved']:
-                    if j['item'].upper() == a['item'].upper() and j['item'].upper() == b['item'].upper():
+                    if req_item  == a['item'].upper() and req_item  == b['item'].upper():
                         for q in i['serial']:
-                            for k, v in q.items():
-                                if j['item'].upper() == k[0]:
-                                    out_data['Serial Number'].append(k[2])
-                                    if k[1] == 'Main':
-                                        out_data['Qty Main'].append(v)
-                                        out_data['Qty RU Ops'].append(0)  
-                                    elif k[1] == 'RU Ops':
-                                        out_data['Qty RU Ops'].append(v)
-                                        out_data['Qty Main'].append(0)
-                                else:
-                                    out_data['Serial Number'].append(0)
+                            sn_item = q['sn_item']
+                            sn_store = q['store']
+                            sn = q['serial_number']
+                            sn_qty = q['sn_qty']
+                            if req_item == sn_item:
+                                out_data['Serial Number'].append(sn)
+                                if sn_store == 'Main':
+                                    out_data['Qty Main'].append(sn_qty)
+                                    out_data['Qty RU Ops'].append(0) 
+                                elif sn_store == 'RU Ops':
+                                    out_data['Qty RU Ops'].append(sn_qty)
                                     out_data['Qty Main'].append(0)
-                                    out_data['Qty RU Ops'].append(0)    
+                                
+                                cnt +=1
+                                       
                                 out_data["Redress Kit"].append(i['redress_kit'])
                                 out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
                                 out_data['Required'].append(required)
@@ -230,8 +234,27 @@ def handling_data(data, updated_store, items_by_stock):
                                     out_data['Need to order'].append(0)
                                 out_data['Reserved'].append(b['qty'])
                                 out_data['Main'].append(item_from_main)
-                                out_data['Ru Ops'].append(item_from_ruops)  
-                                  
+                                out_data['Ru Ops'].append(item_from_ruops)
+                        else:
+                            if cnt >=0:
+                                out_data['Serial Number'].append(0)
+                                out_data['Qty Main'].append(0)
+                                out_data['Qty RU Ops'].append(0)
+                                out_data["Redress Kit"].append(i['redress_kit'])
+                                out_data['Qty on store'].append(i['total'][-1]['q-ty on store'])
+                                out_data['Required'].append(required)
+                                out_data['Can collect'].append(max_collect)
+                                out_data['Item'].append(a['item'])
+                                out_data['Qty per kit'].append(j['qty'])
+                                out_data['Description'].append(j['description'])
+                                if (need_qty - a['qty']) > 0:
+                                    out_data['Need to order'].append(need_qty - a['qty'])
+                                else:
+                                    out_data['Need to order'].append(0)
+                                out_data['Reserved'].append(b['qty'])
+                                out_data['Main'].append(item_from_main)
+                                out_data['Ru Ops'].append(item_from_ruops)
+                                    
     for k, v in updated_store.items():
         store_data['Item'].append(k)
         store_data['Quantity'].append(v)              
@@ -261,64 +284,63 @@ def output_data(all_data, store_data):
         df_store = pd.DataFrame(store_data)
         SHEETNAME = 'Collect Redress Kit'
         SHEETNAME_STORE = 'Store'
-  
-        df.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME, index=False)
-        df_store.to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
-        df_store.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
-            
-        ws = wb.sheets[SHEETNAME]
-        ws.auto_filter.ref='a:g'
-        fr = ws['A1']
-        
-        ws.column_dimensions['A'].width = 13
-        ws.column_dimensions['B'].width = 8
-        ws.column_dimensions['C'].width = 10
-        ws.column_dimensions['D'].width = 10
-        ws.column_dimensions['E'].width = 12
-        ws.column_dimensions['F'].width = 8
-        ws.column_dimensions['G'].width = 30
-        ws.column_dimensions['H'].width = 10
-        ws.column_dimensions['i'].width = 10
-        ws.column_dimensions['j'].width = 10
-        ws.column_dimensions['k'].width = 10
-        #ws.column_dimensions['l'].width = 10
-        ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['D1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['E1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['F1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['G1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['H1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['I1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['J1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['K1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        #ws['L1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws.freeze_panes = fr   
 
-        ws_store = wb.sheets[SHEETNAME_STORE]
-        ws_store.auto_filter.ref='a:b'
-        ws_store.column_dimensions['A'].width = 20
-        ws_store.column_dimensions['B'].width = 11
-        ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        df.to_excel(wb, sheet_name="Sheet1")  
+        df_store.to_excel(wb, sheet_name="Sheet2")
+        
+        # df.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME, index=False)
+        # df_store.to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
+        # df_store.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME_STORE, index=False)
             
+        # ws = wb.sheets[SHEETNAME]
+        # ws.auto_filter.ref='a:g'
+        # fr = ws['A1']
+        
+        # ws.column_dimensions['A'].width = 13
+        # ws.column_dimensions['B'].width = 8
+        # ws.column_dimensions['C'].width = 10
+        # ws.column_dimensions['D'].width = 10
+        # ws.column_dimensions['E'].width = 12
+        # ws.column_dimensions['F'].width = 8
+        # ws.column_dimensions['G'].width = 30
+        # ws.column_dimensions['H'].width = 10
+        # ws.column_dimensions['i'].width = 10
+        # ws.column_dimensions['j'].width = 10
+        # ws.column_dimensions['k'].width = 10
+        # #ws.column_dimensions['l'].width = 10
+        # ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['D1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['E1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['F1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['G1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['H1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['I1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['J1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['K1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # #ws['L1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws.freeze_panes = fr   
+
+        # ws_store = wb.sheets[SHEETNAME_STORE]
+        # ws_store.auto_filter.ref='a:b'
+        # ws_store.column_dimensions['A'].width = 20
+        # ws_store.column_dimensions['B'].width = 11
+        # ws['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
             
 def main():
     items_by_stock, total, serial_items = get_data_from_excel_stock(FILE_PATH)
     required_redress_kits = get_data_from_excel_required_redress(FILE_PATH)
     redress_kit_bom = get_data_from_excel_redress_kits_bom(FILE_PATH)
-    # test_one = 'T323'
-    # for k, v in serial_items.items():
-    #     if k[0] == test_one and k[1] == 'RU Ops':
-    #         print(k, v)
     required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
     data, updated_store = merge_store(total, required_with_items, serial_items)
+    #print(data)
     all_data, store_data = handling_data(data, updated_store, items_by_stock)
+    print(all_data)
     output_data(all_data, store_data)
     
-    
-    
+
 if __name__ == '__main__':
     main()
