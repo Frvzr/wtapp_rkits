@@ -1,4 +1,7 @@
-import os
+from constants import (
+    INPUT_FILE, FILE_PATH, SHEETNAME_OUTPUT, SHEETNAME_STORE_OUTPUT, SHEETNAME_INPUT_BOM,
+    SHEETNAME_INPUT_STOCK, SHEETNAME_INPUT_REQUIRED, OUTPUT_FILE
+)
 import pandas as pd
 from math import floor
 import pathlib
@@ -6,17 +9,6 @@ from openpyxl.styles import Alignment
 from logger import get_logger
 
 logger = get_logger(__name__)
-
-DIR = os.getcwd()
-INPUT_FILE = 'required_redress_kit.xlsx'
-FILE_PATH = f'{DIR}\\{INPUT_FILE}'
-SHEETNAME_INPUT_STOCK = 'Stock 2023'
-SHEETNAME_INPUT_REQUIRED = 'Required redress kits'
-SHEETNAME_INPUT_BOM = 'Redress kit BOM'
-
-OUTPUT_FILE = "can_collect_redress_kits.xlsx"
-SHEETNAME_OUTPUT = 'Collect Redress Kit'
-SHEETNAME_STORE_OUTPUT = 'Updated stocks'
 
 
 def get_data_from_excel_stock(path):
@@ -297,8 +289,11 @@ def output_data(all_data, store_data):
         df.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME_OUTPUT, index=False)
         df_store.to_excel(wb, sheet_name=SHEETNAME_STORE_OUTPUT, index=False)
         df_store.style.applymap_index(bg_header, axis=1).applymap_index(get_text_color, axis=1).applymap_index(get_center_text, axis=1).set_properties(**{'text-align': 'center'}).to_excel(wb, sheet_name=SHEETNAME_STORE_OUTPUT, index=False)
-        
-        ws = wb.sheets[SHEETNAME_OUTPUT]
+
+        workbook = wb.book
+        ws = workbook.sheets[SHEETNAME_OUTPUT]
+        print('ws:', ws)
+        ws.sheet_state = 'visible'
         ws.auto_filter.ref='a:l' 
         
         col_dims_items = {'A': 13, 'B': 8, 'C': 10, 'D': 10, 'E': 12, 'F': 8, 'G': 30, 'H': 10, 'I': 10, 'J': 10, 'K': 10, 'L': 10}
