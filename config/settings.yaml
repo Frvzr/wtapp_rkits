@@ -1,0 +1,55 @@
+# Основные настройки приложения
+app:
+  name: "Redress System"
+  version: "1.0.0"
+  log_level: "INFO"
+
+# Настройки файлов
+files:
+  input_file: "required_redress_kit.xlsx"
+  output_file: "redress_kits_report.xlsx"
+  backup_enabled: true
+  backup_folder: "backups"
+
+# Настройки листов Excel
+sheets:
+  input:
+    required: "Required redress kits"
+    bom: "Redress kit BOM"
+    stock: "StockIMC2023"
+  output:
+    main: "Redress Kits"
+    summary: "Summary"
+
+# Настройки резервирования
+reservation:
+  strategy: "lowest_sn_first"  # lowest_sn_first, fifo, highest_qty_first
+  allow_partial_reservation: true
+  max_redress_kits_per_run: 1000
+
+# Настройки отчета
+report:
+  auto_adjust_columns: true
+  add_filters: true
+  include_summary: true
+  conditional_formatting:
+    low_stock_threshold: 10
+    highlight_missing: true
+
+# Настройки колонок (будут использоваться в column_mapping.yaml)
+columns:
+  input:
+    required:
+      redress_kit: "Redress kit"
+      qty_on_store: "Q-ty on store"
+      required_qty: "Req qty"
+    bom:
+      bom: "BOM"
+      redress_part_number: "Redress Part Number"
+      item_part_number: "Item Part Number"
+      description: "Description"
+      quantity: "Quantity pr."
+    stock:
+      part_number: "Part Number"
+      serial_number: "SN"
+      total: "Total"

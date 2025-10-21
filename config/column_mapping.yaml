@@ -1,0 +1,72 @@
+# Маппинг колонок для выходного отчета
+output_columns:
+  redress_kit:
+    name: "Redress Kit"
+    width: 15
+    order: 1
+
+  qty_on_store:
+    name: "Qty on store"
+    width: 12
+    order: 2
+
+  required:
+    name: "Required"
+    width: 10
+    order: 3
+
+  item:
+    name: "Item"
+    width: 12
+    order: 4
+
+  qty_per_kit:
+    name: "Qty per kit"
+    width: 12
+    order: 5
+
+  description:
+    name: "Description"
+    width: 30
+    order: 6
+
+  need_to_order:
+    name: "Need to order"
+    width: 15
+    order: 7
+
+  reserved:
+    name: "Reserved"
+    width: 10
+    order: 8
+
+  serial_number:
+    name: "Serial Number"
+    width: 15
+    order: 9
+
+  main:
+    name: "Main"
+    width: 10
+    order: 10
+
+  remaining_after_reserve:
+    name: "After Reserve"
+    width: 18
+    order: 11
+
+# Порядок сортировки
+sorting:
+  primary: "Redress Kit"
+  secondary: "Item"
+  tertiary: "Serial Number"
+
+# Форматирование
+formatting:
+  header:
+    font_size: 12
+    bold: true
+    fill_color: "D3D3D3"
+  data:
+    font_size: 10
+    wrap_text: true
