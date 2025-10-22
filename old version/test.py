@@ -3,7 +3,8 @@ import pandas as pd
 from math import floor
 
 from constants import (
-    INPUT_FILE, FILE_PATH, SHEETNAME_INPUT_BOM, SHEETNAME_INPUT_STOCK, SHEETNAME_INPUT_REQUIRED
+    INPUT_FILE, FILE_PATH, SHEETNAME_INPUT_BOM, SHEETNAME_INPUT_STOCK, SHEETNAME_INPUT_REQUIRED, SHEETNAME_OUTPUT,
+    OUTPUT_FILE
 )
 from logger import get_logger
 
@@ -105,30 +106,18 @@ def get_data_from_excel_sheet_stock(path: str, items: list):
         ], ignore_index=True).fillna({'SN': '', 'Total': 0})
 
         # УДАЛЕНИЕ ДУБЛИКАТОВ по Part Number и SN
-        print(f"До удаления дубликатов: {len(actual_stock_)} строк")
+        #print(f"До удаления дубликатов: {len(actual_stock_)} строк")
 
         # Проверяем наличие дубликатов
         duplicates = actual_stock_[actual_stock_.duplicated(subset=['Part Number', 'SN'], keep=False)]
         if not duplicates.empty:
             print(f"Найдены дубликаты по Part Number и SN:")
-            print(duplicates[['Part Number', 'SN']].to_string())
 
         # Удаляем дубликаты, оставляя первую запись
         actual_stock_clean = actual_stock_.drop_duplicates(subset=['Part Number', 'SN'], keep='first')
 
-        print(f"После удаления дубликатов: {len(actual_stock_clean)} строк")
 
         return actual_stock_clean
-
-    except ValueError as ve:
-        logger.critical(f"Value error in {INPUT_FILE}: {str(ve)}", exc_info=True)
-        raise
-    except KeyError as ke:
-        logger.critical(f"Column error in {INPUT_FILE}: {str(ke)}", exc_info=True)
-        raise
-    except Exception as e:
-        logger.critical(f"Unexpected error processing {INPUT_FILE}: {str(e)}", exc_info=True)
-        raise
 
     except ValueError as ve:
         logger.critical(f"Value error in {INPUT_FILE}: {str(ve)}", exc_info=True)
@@ -199,7 +188,6 @@ def merge_store(required_with_items: Dict, qty_on_store_data) -> Tuple[Dict, Dic
 
         # Резервирование
         reserved = get_reserved(required, item, qty_on_store_data)
-        print("Reserved data:", reserved)
 
         # Обновление данных склада
         qty_on_store_data = update_store(qty_on_store_data, reserved)
@@ -214,7 +202,6 @@ def merge_store(required_with_items: Dict, qty_on_store_data) -> Tuple[Dict, Dic
             'reserved': reserved['update_data'],
             'serial': serial['serial_items']
         })
-    print(max_collect_redress['maximum collect rkits'])
     logger.info("Merging data with stock completed")
     return max_collect_redress, qty_on_store_data
 
@@ -261,9 +248,8 @@ def get_reserved(res: int, redress: Dict, qty_on_store_data: pd.DataFrame) -> Di
             # Объединяем: сначала записи с SN (отсортированные по возрастанию), затем без SN
             sorted_data = pd.concat([with_sn, without_sn])
 
-            print(f"Распределение для {item_from_consist}: требуется {reserved_qty}")
+            #print(f"Распределение для {item_from_consist}: требуется {reserved_qty}")
 
-            # ВАЖНО: сначала обрабатываем ВСЕ записи для вычитания
             processed_records = []
 
             for _, row in sorted_data.iterrows():
@@ -279,7 +265,7 @@ def get_reserved(res: int, redress: Dict, qty_on_store_data: pd.DataFrame) -> Di
                     })
                     continue
 
-                print(f"  SN {current_sn}: доступно {current_total}, нужно вычесть {remaining_to_subtract}")
+                #print(f"  SN {current_sn}: доступно {current_total}, нужно вычесть {remaining_to_subtract}")
 
                 if current_total >= remaining_to_subtract:
                     # Вычитаем полностью из текущей записи
@@ -289,7 +275,7 @@ def get_reserved(res: int, redress: Dict, qty_on_store_data: pd.DataFrame) -> Di
                         'Serial Number': current_sn,
                         'Qty': new_qty
                     })
-                    print(f"    → Вычитаем {remaining_to_subtract}, остаток: {new_qty}")
+                    #print(f"    → Вычитаем {remaining_to_subtract}, остаток: {new_qty}")
                     remaining_to_subtract = 0
                 else:
                     # Вычитаем всё из текущей записи и переносим остаток
@@ -298,7 +284,7 @@ def get_reserved(res: int, redress: Dict, qty_on_store_data: pd.DataFrame) -> Di
                         'Serial Number': current_sn,
                         'Qty': 0
                     })
-                    print(f"    → Вычитаем всё ({current_total}), переносим остаток: {remaining_to_subtract - current_total}")
+                    #print(f"    → Вычитаем всё ({current_total}), переносим остаток: {remaining_to_subtract - current_total}")
                     remaining_to_subtract -= current_total
 
             # Добавляем ВСЕ обработанные записи в update_data
@@ -312,7 +298,7 @@ def get_reserved(res: int, redress: Dict, qty_on_store_data: pd.DataFrame) -> Di
                     'Serial Number': row['SN'],
                     'Qty': row['Total']
                 })
-    print("UPDATE_DATA", reserved['update_data'])
+    #print("UPDATE_DATA", reserved['update_data'])
     return reserved
 
 
@@ -343,7 +329,7 @@ def update_store(qty_on_store_data: pd.DataFrame, reserved: Dict) -> pd.DataFram
         if key in update_dict:
             updated_data.at[idx, 'Total'] = update_dict[key]
 
-    print(f"Обновлено {len(update_dict)} записей на складе")
+    #print(f"Обновлено {len(update_dict)} записей на складе")
     return updated_data
 
 
@@ -453,11 +439,11 @@ def process_redress_data(input_data, output_file='redress_kits_report.xlsx'):
 
     # Сохраняем в Excel
     with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Redress Kits', index=False)
+        df.to_excel(writer, sheet_name=SHEETNAME_OUTPUT, index=False)
 
         # Форматирование
         workbook = writer.book
-        worksheet = writer.sheets['Redress Kits']
+        worksheet = writer.sheets[SHEETNAME_OUTPUT]
 
         # Устанавливаем ширину колонок
         column_widths = {
@@ -484,13 +470,10 @@ def main():
         required_redress_kits, required_redress = get_data_from_excel_sheet_required_redress(FILE_PATH)
         redress_kit_bom, items = get_data_from_excel_sheet_redress_kits_bom(FILE_PATH, required_redress)
         items_by_stock = get_data_from_excel_sheet_stock(FILE_PATH, items)
-        print(items_by_stock.loc[items_by_stock['Part Number'] == "D206"])
-        print(items_by_stock.loc[items_by_stock['Part Number'] == "T006"])
         # Обработка данных
         required_with_items = merge_consist(required_redress_kits, redress_kit_bom)
         data, updated_store = merge_store(required_with_items, items_by_stock)
-        print(data)
-        df = process_redress_data(data, 'test_report.xlsx')
+        df = process_redress_data(data, OUTPUT_FILE)
 
         logger.info("Program completed successfully")
 
