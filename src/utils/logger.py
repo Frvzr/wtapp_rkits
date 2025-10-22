@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 
-def setup_logging(log_level: str = "INFO", log_file: str = "redress_system.log"):
+def setup_logging(log_level: str = "INFO", log_file: str = "redress_kit_collector.log"):
     """Настройка логирования"""
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 

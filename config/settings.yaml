@@ -1,13 +1,13 @@
 # Основные настройки приложения
 app:
-  name: "Redress System"
-  version: "1.0.0"
+  name: "Redress Kit Collector"
+  version: "2.0.0"
   log_level: "INFO"
 
 # Настройки файлов
 files:
   input_file: "required_redress_kit.xlsx"
-  output_file: "redress_kits_report.xlsx"
+  output_file: "can_collect_redress_kits.xlsx"
   backup_enabled: true
   backup_folder: "backups"
 

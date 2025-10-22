@@ -148,10 +148,10 @@ class ReportGenerator:
                             'Qty per kit': qty_per_kit,
                             'Description': description,
                             'Need to order': need_to_order,
-                            'Reserved': actual_reserved,  # Сколько ВЗЯЛИ из этого SN
+                            'Reserved': actual_reserved,
                             'Serial Number': serial_number_str,
-                            'Main': original_qty,  # Исходное количество ДО резерва
-                            'After Reserve': remaining_after  # Что ОСТАЛОСЬ после резерва
+                            'Main': original_qty,
+                            'After Reserve': remaining_after
                         }
                         rows.append(row)
                 else:
@@ -258,11 +258,11 @@ class ReportGenerator:
         """Сохранение в Excel с форматированием"""
         try:
             with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Redress Kits', index=False)
+                df.to_excel(writer, sheet_name='Collect Redress Kit', index=False)
 
                 # Применяем форматирование
                 workbook = writer.book
-                worksheet = writer.sheets['Redress Kits']
+                worksheet = writer.sheets['Collect Redress Kit']
                 self._apply_formatting(worksheet, df)
 
         except Exception as e:
